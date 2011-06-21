@@ -1,0 +1,3 @@
+
+### Import project into Intellij
+Use sbt 'idea' task to create project iml file. Then import it as a module in Intellij
