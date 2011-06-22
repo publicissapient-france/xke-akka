@@ -2,6 +2,9 @@
 # Import on IDEA
 sbt idea
 
+Durée : 150 minutes
+Pour 6 use cases : 25 minutes/UC --> 15 minutes de code + 10 minutes correction et discussion
+
 # Use case 1
 But :
 - Créer un acteur qui ne retourne rien
@@ -22,6 +25,20 @@ But :
 - Enregister un acteur dans la registry
 - Le récupérer
 
+
+#Use case 4
+But :
+- Creer l'application, instancier les acteurs
+- Premier tests fonctionel
+
+#Use case 5
+But :
+- Instancié le transcoder dans un autre VM
+- Y acceder en remote
+
+#Use case 6
+But:
+- Failover
 
 
 
