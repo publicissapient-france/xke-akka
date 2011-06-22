@@ -1,0 +1,37 @@
+# Import on IDEA
+sbt idea
+
+# Use case 1
+But :
+- Créer un acteur qui ne retourne rien
+- Implémenter simplement la méthode receive qui doit vérifier le type de message est ecrire un message.
+- Ecrire un test ou un main pour utiliser l'acteur
+
+
+# Use case 2
+But :
+- Créer un acteur qui dans son traitement envoie un réponse à l'envoyeur
+- Attendre la réponse en synchrone
+- Refactorer pour pour gérer la réponse avec un callback
+- Ecrire un test ou un main pour utiliser l'acteur
+
+
+#Use case 3
+But :
+- Enregister un acteur dans la registry
+- Le récupérer
+
+
+
+
+
+Liste des acteurs
+- TrackDownloader (Va récupérer une piste sur un serveur distant ou fs)
+- OrderProcesssor
+- Transcoder (Encode une track)
+
+
+Message
+- Track (Piste original)
+- EncodedTrack (Piste encodé)
+- Order (Demande d'une piste sous un ou plusieurs format)
