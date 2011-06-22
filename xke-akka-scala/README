@@ -1,3 +1,4 @@
+
 # Import on IDEA
 sbt idea
 
@@ -35,3 +36,7 @@ Message
 - Track (Piste original)
 - EncodedTrack (Piste encodé)
 - Order (Demande d'une piste sous un ou plusieurs format)
+
+
+### Import project into Intellij
+Use sbt 'idea' task to create project iml file. Then import it as a module in Intellij

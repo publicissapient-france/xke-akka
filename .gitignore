@@ -4,4 +4,8 @@ target
 *.ipr
 *.iws
 .DS_Store
-
+xke-akka-scala/project/boot/
+xke-akka-scala/lib_managed/
+xke-akka-scala/project/plugins/lib_managed/
+xke-akka-scala/project/plugins/src_managed/
+xke-akka-scala/project/build/target/
