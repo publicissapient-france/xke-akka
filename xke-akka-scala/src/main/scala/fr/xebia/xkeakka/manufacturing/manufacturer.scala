@@ -13,7 +13,7 @@ import java.io.File
 import collection.immutable.HashSet
 import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat, FileFormat}
 
-sealed trait Event
+    sealed trait Event
     case class ProvisioningRequest(master:File) extends Event
     case class ProvisioningDone(formats:List[FileFormat]) extends Event
     case class GetRequiredFormats(master:File) extends Event
@@ -45,7 +45,7 @@ sealed trait Event
             } else {
                 requestedFileFormats += fileFormat
                 pendingEncodings += fileFormat
-                masterActorMap += (fileFormat.master -> self.sender.get)
+                if (self.sender != None) masterActorMap += (fileFormat.master -> self.sender.get)
                 Some(EncodeFile(fileFormat))
             }
         }
@@ -80,7 +80,7 @@ sealed trait Event
         }
     }
 
-    class Transcoder extends Actor with LameTranscoder {
+    class TranscoderActor extends LameTranscoder with Actor {
 
         def receive = {
             case EncodeFile(fileFormat) => transcode(fileFormat); self reply FileEncoded(fileFormat) // TODO manage failure

@@ -32,7 +32,7 @@ abstract class Transcoder {
 
 }
 
-trait LameTranscoder extends Transcoder { self:Actor =>
+trait LameTranscoder extends Transcoder { //self:Actor =>
 
     // lame
     def transcode(fileFormat:FileFormat) = {
