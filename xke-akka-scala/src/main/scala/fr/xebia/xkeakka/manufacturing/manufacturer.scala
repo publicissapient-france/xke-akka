@@ -28,36 +28,45 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
                        val transcoder:ActorRef,
                        val storageManager:ActorRef) extends Actor {
 
-        private var requestedFileFormats = HashSet.empty[FileFormat] // TODO: change to Map[File, FileFormat]
-        private var pendingEncodings = HashSet.empty[FileFormat]
+        private var requestedFileFormats = HashSet.empty[FileFormat]
+        private var availableFiles = List.empty[FileFormat]
         private var masterActorMap = Map.empty[File, ActorRef] // store the actor that send the request
 
         def receive = {
-            case ProvisioningRequest(file) => businessPartners.foreach(_ ! GetRequiredFormats(file))
-            case RequiredFormat(fileFormat) => storageManager ! CheckAvailability(fileFormat)
-            case FileAvailability(fileFormat, true) => getEncodingRequest(fileFormat) foreach { transcoder ! _ }
-            case FileEncoded(fileFormat) => processFileEncoded(fileFormat) foreach { masterActorMap(fileFormat.master) ! _ }
+            case ProvisioningRequest(master) => processProvisioningRequest(master)
+            case RequiredFormat(fileFormat) => processBPResponse(fileFormat)
+            case FileAvailability(fileFormat, true) => availableFiles ::= fileFormat
+            case FileAvailability(fileFormat, false) =>  transcoder ! getEncodingRequest(fileFormat)
+            case FileEncoded(fileFormat) => processFileEncoded(fileFormat)
         }
 
-        def getEncodingRequest(fileFormat:FileFormat):Option[EncodeFile] = {
-            if (requestedFileFormats.contains(fileFormat)) {
-                None
-            } else {
+        def processProvisioningRequest(master:File) {
+            // store caller reference (for response) :
+            if (self.sender != None) masterActorMap += (master -> self.sender.get)
+            // submit the master file to Business Partners :
+            businessPartners.foreach(_ ! GetRequiredFormats(master))
+        }
+
+        def processBPResponse(fileFormat:FileFormat) {
+            // process only files that don't have been already required
+            if (!requestedFileFormats.contains(fileFormat)) {
                 requestedFileFormats += fileFormat
-                pendingEncodings += fileFormat
-                if (self.sender != None) masterActorMap += (fileFormat.master -> self.sender.get)
-                Some(EncodeFile(fileFormat))
+                storageManager ! CheckAvailability(fileFormat)
             }
         }
 
-        def processFileEncoded(fileFormat:FileFormat):Option[ProvisioningDone] = {
-            pendingEncodings -= fileFormat
-            if (pendingEncodings.isEmpty) {
-                val provisioningDone = ProvisioningDone(requestedFileFormats.toList)
-                requestedFileFormats = HashSet.empty[FileFormat]
-                Some(provisioningDone)
-            } else {
-                None
+        def getEncodingRequest(fileFormat:FileFormat):EncodeFile = {
+                EncodeFile(fileFormat)
+        }
+
+        def processFileEncoded(fileFormat:FileFormat) {
+            availableFiles ::= fileFormat
+            // check if all requested files are available :
+            val requiredFiles = requestedFileFormats.filter(_.master == fileFormat.master)
+            val encodedFiles = availableFiles.filter(_.master == fileFormat.master)
+            if (requiredFiles.size == encodedFiles.size) {
+                // send response to sender
+                masterActorMap.get(fileFormat.master) foreach { _ ! availableFiles }
             }
         }
     }
@@ -77,13 +86,21 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         def receive = {
             case CheckAvailability(fileFormat) =>
                 self reply FileAvailability(fileFormat, filesAvailable.contains(fileFormat.encodedFile))
+            case StoreFile(fileFormat) => filesAvailable += fileFormat.encodedFile
         }
     }
 
-    class TranscoderActor extends LameTranscoder with Actor {
+    class TranscoderActor(storageManager:ActorRef) extends LameTranscoder with Actor {
 
         def receive = {
-            case EncodeFile(fileFormat) => transcode(fileFormat); self reply FileEncoded(fileFormat) // TODO manage failure
+            case EncodeFile(fileFormat) => encodeFile(fileFormat)
+        }
+
+        def encodeFile(fileFormat:FileFormat) {
+            if (transcode(fileFormat)) {
+                self reply FileEncoded(fileFormat)
+                storageManager ! StoreFile(fileFormat)
+            }
         }
     }
 

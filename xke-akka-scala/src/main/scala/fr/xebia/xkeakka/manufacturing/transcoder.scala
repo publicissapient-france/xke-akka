@@ -44,7 +44,7 @@ trait LameTranscoder extends Transcoder { //self:Actor =>
         var args = List.empty[String]
         args ::= fileFormat.master.getAbsolutePath
         args ::= fileFormat.encodedFile.getAbsolutePath
-        ("lame", args.reverse)
+        ("./lame.sh", args.reverse)
     }
 }
 
