@@ -5,6 +5,7 @@ class Manufacturing(info: ProjectInfo) extends DefaultProject(info) with IdeaPro
     val releases = "releases" at "http://scala-tools.org/repo-releases"
 
     val scalatest = "org.scalatest" % "scalatest_2.9.0" % "1.4.1" withSources()
+    val mockitoCore = "org.mockito" % "mockito-core" % "1.8.5" withSources()
 
     val akkaRemote = akkaModule("remote") withSources()
     val akkaTestKit = akkaModule("testkit") withSources()

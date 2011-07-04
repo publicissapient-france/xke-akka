@@ -1,10 +1,8 @@
-package fr.xebia.xkeakka
+package fr.xebia.xkeakka.util
 
 /**
  * @author David Galichet.
  */
-
-package util {
 
 import java.lang.ProcessBuilder
 import io.Source.fromInputStream
@@ -17,9 +15,7 @@ case class CommandBuilder(command:String, args:List[String], inputHandler:String
         val process = pb.start()
         val status = process.waitFor()
         inputHandler(fromInputStream(process.getInputStream()).getLines().mkString("\n"))
-        errorHandler(fromInputStream(process.getErrorStream()).getLines().mkString("\n"))
+        if (status != 0) errorHandler(fromInputStream(process.getErrorStream()).getLines().mkString("\n"))
         status == 0
     }
-}
-
 }
