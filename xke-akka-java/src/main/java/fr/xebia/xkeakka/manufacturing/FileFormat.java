@@ -4,7 +4,7 @@ import java.io.File;
 
 public final class FileFormat {
 
-    public final File encodedFile;
+    public final String encodedFilePath;
 
     public FileFormat(File master, String encoderType, int bitRate) {
 
@@ -16,7 +16,13 @@ public final class FileFormat {
         } else {
             masterExtensionLess = master.getName();
         }
-        encodedFile = new File(master.getAbsoluteFile().getParent() + "/encoded/%s_%s.%s".format(masterExtensionLess, bitRate, encoderType));
+        encodedFilePath = master.getAbsoluteFile().getParent() + "/encoded/%s_%s.%s".format(masterExtensionLess, bitRate, encoderType);
+    }
+
+    public String getFileName() {
+        File file = new File(encodedFilePath);
+        String name = file.getName();
+        return name;
     }
 }
 
