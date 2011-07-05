@@ -12,8 +12,9 @@ import akka.routing.{CyclicIterator, Routing}
 import java.io.File
 import collection.immutable.HashSet
 import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat, FileFormat}
+import akka.event.EventHandler
 
-    sealed trait Event
+sealed trait Event
     case class ProvisioningRequest(master:File) extends Event
     case class ProvisioningDone(formats:List[FileFormat]) extends Event
     case class GetRequiredFormats(master:File) extends Event
@@ -24,9 +25,11 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
     case class FileEncoded(fileFormat:FileFormat) extends Event
     case class StoreFile(fileFormat:FileFormat) extends Event
 
-    class Provisioning(val businessPartners:List[ActorRef],
-                       val transcoder:ActorRef,
-                       val storageManager:ActorRef) extends Actor {
+    trait ProvisioningActor extends Actor {
+
+        val businessPartners:List[ActorRef]
+        val transcoder:ActorRef
+        val storageManager:ActorRef
 
         private var requestedFileFormats = HashSet.empty[FileFormat]
         private var availableFiles = List.empty[FileFormat]
@@ -41,6 +44,7 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         }
 
         def processProvisioningRequest(master:File) {
+            EventHandler.info(this, "processing request for " + master.getName)
             // store caller reference (for response) :
             if (self.sender != None) masterActorMap += (master -> self.sender.get)
             // submit the master file to Business Partners :
@@ -48,6 +52,7 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         }
 
         def processBPResponse(fileFormat:FileFormat) {
+            EventHandler.info(this, "processing BP response " + fileFormat)
             // process only files that don't have been already required
             if (!requestedFileFormats.contains(fileFormat)) {
                 requestedFileFormats += fileFormat
@@ -60,6 +65,7 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         }
 
         def processFileEncoded(fileFormat:FileFormat) {
+            EventHandler.info(this, "processing transcoder response " + fileFormat)
             availableFiles ::= fileFormat
             // check if all requested files are available :
             val requiredFiles = requestedFileFormats.filter(_.master == fileFormat.master)
@@ -69,9 +75,10 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
                 masterActorMap.get(fileFormat.master) foreach { _ ! availableFiles }
             }
         }
+
     }
 
-    class BusinessPartner(val requiredFormats:List[EncodingFormat]) extends Actor {
+    class BusinessPartnerActor(val requiredFormats:List[EncodingFormat]) extends Actor {
 
         def receive = {
             case GetRequiredFormats(master) =>
@@ -79,24 +86,29 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         }
     }
 
-    class StorageManager extends Actor {
+    class StorageManagerActor extends Actor {
 
         var filesAvailable = HashSet.empty[File]
 
         def receive = {
-            case CheckAvailability(fileFormat) =>
-                self reply FileAvailability(fileFormat, filesAvailable.contains(fileFormat.encodedFile))
-            case StoreFile(fileFormat) => filesAvailable += fileFormat.encodedFile
+            case CheckAvailability(fileFormat) => self reply FileAvailability(fileFormat, filesAvailable.contains(fileFormat.encodedFile))
+            case StoreFile(fileFormat) => {
+                EventHandler.info(this, "storing file " + fileFormat)
+                filesAvailable += fileFormat.encodedFile
+            }
         }
     }
 
-    class TranscoderActor(storageManager:ActorRef) extends LameTranscoder with Actor {
+    trait TranscoderActor extends LameTranscoder with Actor {
+
+        val storageManager:ActorRef
 
         def receive = {
             case EncodeFile(fileFormat) => encodeFile(fileFormat)
         }
 
         def encodeFile(fileFormat:FileFormat) {
+            EventHandler.info(this, "encoding file")
             if (transcode(fileFormat)) {
                 self reply FileEncoded(fileFormat)
                 storageManager ! StoreFile(fileFormat)
@@ -104,12 +116,56 @@ import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat
         }
     }
 
-    class ManufacturingApp {
-        val businessPartners = List( actorOf(new BusinessPartner(Nil)).start(), actorOf(new BusinessPartner(Nil)).start() )
-        val storageManager = actorOf[StorageManager].start()
-        val transcoder = Routing.loadBalancerActor(CyclicIterator(Nil)).start() // TODO: specify transcoders (remote)
-        val provisioningActor = actorOf(new Provisioning(businessPartners, transcoder, storageManager)).start()
+    class ProvisioningService(val transcoderPorts:List[Int]) extends ProvisioningActor {
 
-        // TODO: define main class
+        val bp1 = actorOf(new BusinessPartnerActor(List(EncodingFormat("mp3", 32768), EncodingFormat("mp3", 32768*2)))).start()
+        val bp2 = actorOf(new BusinessPartnerActor(List(EncodingFormat("flacc", 32768)))).start()
+
+        val transcoders = transcoderPorts map { Actor.remote.actorFor("transcoder:service", "localhost", _) }
+
+        val businessPartners = List( bp1, bp2 )
+        val storageManager = actorOf[StorageManagerActor].start()
+        val transcoder = Routing.loadBalancerActor(CyclicIterator(transcoders)).start()
+
+        override def preStart() = {
+            EventHandler.info(this, "starting provisioning")
+            remote.start("localhost", 1551)
+            remote.register("provisioning:service", self)
+            remote.register("storage:service", storageManager)
+        }
+
+        override def postStop() = {
+            EventHandler.info(this, "provisioning stopped")
+            businessPartners.foreach(_.stop())
+            storageManager.stop()
+            transcoder.stop()
+        }
+    }
+
+    class TranscoderService(val port:Int) extends TranscoderActor {
+
+        lazy val storageManager = Actor.remote.actorFor("storage:service", "localhost", 1551)
+
+        override def preStart() = {
+            EventHandler.info(this, "starting transcoder on port " + port)
+            remote.start("localhost", port)
+            remote.register("transcoder:service", self)
+        }
+     }
+
+    class ProvisioningClient extends Actor {
+
+        def receive = {
+            case ProvisioningDone(fileFormats) => fileFormats foreach { fileFormat =>
+                println("This fileFormat has been processed" + fileFormat.toString)
+            }
+            case master:String => callProvisioning(new File(master))
+        }
+
+        def callProvisioning(master:File) {
+            EventHandler.info(this, "processing " + master.getName)
+            val provisioning = Actor.remote.actorFor("provisioning:service", "localhost", 1551)
+            provisioning ! ProvisioningRequest(master)
+        }
     }
 }
