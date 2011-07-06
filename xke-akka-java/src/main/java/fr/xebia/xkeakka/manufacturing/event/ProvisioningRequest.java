@@ -1,4 +1,13 @@
 package fr.xebia.xkeakka.manufacturing.event;
 
-public class ProvisioningRequest extends Event{
+import java.io.File;
+
+public class ProvisioningRequest extends Event {
+
+    public final File file;
+
+    public ProvisioningRequest(File file) {
+        this.file = file;
+    }
+
 }

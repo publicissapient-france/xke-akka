@@ -1,4 +1,4 @@
-package fr.xebia.xkeakka.manufacturing;
+package fr.xebia.xkeakka.transcoder;
 
 import java.io.File;
 
@@ -6,8 +6,10 @@ public final class FileFormat {
 
     public final String encodedFilePath;
 
-    public FileFormat(File master, String encoderType, int bitRate) {
+    public final File master;
 
+    public FileFormat(File master, String encoderType, int bitRate) {
+        this.master = master;
         int index = master.getName().lastIndexOf(".");
         String masterExtensionLess;
 
