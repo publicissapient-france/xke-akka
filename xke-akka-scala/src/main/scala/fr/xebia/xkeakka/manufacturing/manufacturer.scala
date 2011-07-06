@@ -10,7 +10,7 @@ import akka.actor.Actor._
 import akka.actor.{ActorRef, Actor}
 import akka.routing.{CyclicIterator, Routing}
 import java.io.File
-import collection.immutable.HashSet
+import collection.mutable.HashSet
 import fr.xebia.xkeakka.manufacturing.transcoder.{LameTranscoder, EncodingFormat, FileFormat}
 import akka.event.EventHandler
 
@@ -32,13 +32,13 @@ sealed trait Event
         val storageManager:ActorRef
 
         private var requestedFileFormats = HashSet.empty[FileFormat]
-        private var availableFiles = List.empty[FileFormat]
+        private var availableFiles = HashSet.empty[FileFormat]
         private var masterActorMap = Map.empty[File, ActorRef] // store the actor that send the request
 
         def receive = {
             case ProvisioningRequest(master) => processProvisioningRequest(master)
             case RequiredFormat(fileFormat) => processBPResponse(fileFormat)
-            case FileAvailability(fileFormat, true) => availableFiles ::= fileFormat
+            case FileAvailability(fileFormat, true) => availableFiles += fileFormat
             case FileAvailability(fileFormat, false) =>  transcoder ! getEncodingRequest(fileFormat)
             case FileEncoded(fileFormat) => processFileEncoded(fileFormat)
         }
@@ -66,14 +66,17 @@ sealed trait Event
 
         def processFileEncoded(fileFormat:FileFormat) {
             EventHandler.info(this, "processing transcoder response " + fileFormat)
-            availableFiles ::= fileFormat
+            availableFiles += fileFormat
             // check if all requested files are available :
             val requiredFiles = requestedFileFormats.filter(_.master == fileFormat.master)
             val encodedFiles = availableFiles.filter(_.master == fileFormat.master)
             EventHandler.info(this, "%s files encoded, %s files required".format(encodedFiles.size, requiredFiles.size))
             if (requiredFiles.size == encodedFiles.size) {
                 // send response to sender
-                masterActorMap.get(fileFormat.master) foreach { _ ! ProvisioningDone(availableFiles) }
+                masterActorMap.get(fileFormat.master) foreach { _ ! ProvisioningDone(availableFiles.toList) }
+                // remove processed FileFormats :
+                requestedFileFormats --= requiredFiles
+                availableFiles --= encodedFiles
             }
         }
 
