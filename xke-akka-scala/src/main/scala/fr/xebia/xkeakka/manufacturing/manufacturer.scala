@@ -70,9 +70,10 @@ sealed trait Event
             // check if all requested files are available :
             val requiredFiles = requestedFileFormats.filter(_.master == fileFormat.master)
             val encodedFiles = availableFiles.filter(_.master == fileFormat.master)
+            EventHandler.info(this, "%s files encoded, %s files required".format(encodedFiles.size, requiredFiles.size))
             if (requiredFiles.size == encodedFiles.size) {
                 // send response to sender
-                masterActorMap.get(fileFormat.master) foreach { _ ! availableFiles }
+                masterActorMap.get(fileFormat.master) foreach { _ ! ProvisioningDone(availableFiles) }
             }
         }
 
