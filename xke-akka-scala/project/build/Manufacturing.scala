@@ -1,6 +1,8 @@
 import sbt._
+import de.element34.sbteclipsify._
 
-class Manufacturing(info: ProjectInfo) extends DefaultProject(info) with IdeaProject with AkkaProject {
+
+class Manufacturing(info: ProjectInfo) extends DefaultProject(info) with IdeaProject with Eclipsify with AkkaProject {
     val snapshots = "snapshots" at "http://scala-tools.org/repo-snapshots"
     val releases = "releases" at "http://scala-tools.org/repo-releases"
 
