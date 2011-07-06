@@ -7,7 +7,6 @@ package fr.xebia.xkeakka.manufacturing
 package transcoder {
 
 import java.io.File
-import akka.actor.Actor
 import akka.event.EventHandler
 import fr.xebia.xkeakka.util.CommandBuilder
 

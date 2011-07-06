@@ -7,9 +7,9 @@ import org.scalatest.matchers.ShouldMatchers
  * @author David Galichet.
  */
 
-class SystemCommandTests extends WordSpec with ShouldMatchers {
+class CommandBuilderTests extends WordSpec with ShouldMatchers {
 
-    "A SystemCommand" should {
+    "A Command Builder" should {
         "launch basic commands" in {
             var input = ""
             var error = ""
